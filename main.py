@@ -4,6 +4,8 @@ from celery import Celery
 from pymongo import MongoClient
 import uuid
 import json
+import time
+import random
 
 app = FastAPI()
 
@@ -39,14 +41,13 @@ def process_job(self, job_id: str, job_data: dict):
     with open(score_file_path, "w") as score_file:
         json.dump(score, score_file)
 
+    # Store this result into database too
+
 # API endpoint for creating a job
 @app.post("/jobs")
 def create_job(job_data: dict):
     # Generate a unique job ID
     job_id = str(uuid.uuid4())
-
-    # Start the Celery task asynchronously
-    process_job.delay(job_id, job_data)
 
     # Create a new job with status "Pending"
     job = Job(id=job_id, name=job_data["name"], status="Pending")
@@ -54,36 +55,45 @@ def create_job(job_data: dict):
     # Store the job status in MongoDB
     jobs_collection.insert_one(job.dict())
 
+    # Start the Celery task asynchronously
+    process_job.delay(job_id, job_data)
+
     # Return the job information
     return job
 
 # API endpoint for stopping a job
 @app.put("/jobs/{job_id}/stop")
 def stop_job(job_id: str):
-    # Query the Celery task to get the job status
-    task = celery_app.AsyncResult(job_id)
 
-    if task.state != "PENDING":
-        # If the task is no longer in the PENDING state, raise an exception indicating it cannot be stopped
+    # Find the job in the database
+    job = jobs_collection.find_one({"id": job_id})
+
+    if job is None:
+        raise HTTPException(status_code=404, detail="Job not found")
+
+    if job["status"] != "Pending":
         raise HTTPException(status_code=400, detail="Only pending jobs can be stopped")
 
-    # Revoke the task to stop its execution
-    task.revoke()
+    # TODO: Stop the worker, remove from queue 
+
+    # Update the job status to "Stopped"
+    jobs_collection.update_one({"id": job_id}, {"$set": {"status": "Stopped"}})
 
     # Return a success message
     return {"message": "Job stopped successfully"}
 
+
 # API endpoint for describing a job
 @app.get("/jobs/{job_id}")
 def describe_job(job_id: str):
-    # Query the Celery task to get the job status
-    task = celery_app.AsyncResult(job_id)
+    # Find the job in the database
+    job = jobs_collection.find_one({"id": job_id})
 
-    if task.state == "PENDING":
+    if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    # Create a job object with the task status
-    job = Job(id=job_id, name=task.info["name"], status=task.state)
+    # Create a job object with the job details
+    job = Job(id=job["id"], name=job["name"], status=job["status"])
 
     # Return the job information
     return job
@@ -91,18 +101,19 @@ def describe_job(job_id: str):
 # API endpoint for listing all jobs
 @app.get("/jobs")
 def list_jobs():
-    # Retrieve all task IDs from the Celery backend
-    task_ids = celery_app.control.inspect().active().keys()
 
-    # Query the status of each task and create Job objects
+    # Retrieve all jobs from the database
+    job_records = jobs_collection.find()
+
+    # Create a list of Job objects from the job records
     jobs = []
-    for task_id in task_ids:
-        task = celery_app.AsyncResult(task_id)
-        job = Job(id=task.id, name=task.info["name"], status=task.state)
+    for job_record in job_records:
+        job = Job(id=job_record["id"], name=job_record["name"], status=job_record["status"])
         jobs.append(job)
 
     # Return the list of jobs
     return jobs
+
 
 def evaluate_model(job_data: dict):
     # Replace this function with your actual model evaluation code
@@ -110,6 +121,7 @@ def evaluate_model(job_data: dict):
     # ...
 
     # Return the generated score
+    time.sleep(random.randint(1,5))
     return {"score": 0.8}
 
 # Run the FastAPI app

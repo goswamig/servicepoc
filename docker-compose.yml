@@ -9,14 +9,30 @@ services:
     depends_on:
       - redis
       - mongodb
+    networks:
+      - my-network
 
   redis:
     image: redis
     ports:
       - '6379:6379'
+    networks:
+      - my-network
 
   mongodb:
     image: mongo
+    command: mongod --bind_ip_all
     ports:
       - '27017:27017'
+    volumes:
+      - ./mongo-init.js:/docker-entrypoint-initdb.d/mongo-init.js
+      - mongodb_data:/data/db
+    networks:
+      - my-network
+
+volumes:
+  mongodb_data:
+
+networks:
+  my-network:
 
