@@ -132,6 +132,7 @@ async def delete_all_jobs():
     client = MongoClient("mongodb://mongodb:27017/")
     db = client["mydatabase"]
     jobs_collection = db["jobs"]
+    # TODO: Find the respective job and cancel it or delete it
     result = jobs_collection.delete_many({})
     return {"message": f"Deleted {result.deleted_count} jobs."}
 
