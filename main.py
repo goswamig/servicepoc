@@ -59,21 +59,15 @@ def process_job(self, job_id):
     job = jobs_collection.find_one({"id": job_id})
     if job is None:
         raise ValueError(f"Job with ID {job_id} not found.")
-    print("Evaluating job " + str(job_id))
+
     # Perform the necessary tasks to evaluate the model and generate the score
     score = evaluate_model(job)
 
-    # Store the score in a JSON file
-    score_file_path = f"score_{job_id}.json"
-    with open(score_file_path, "w") as score_file:
-        json.dump(score, score_file)
+    jobs_collection.update_one({"id": job_id}, {"$set": {"status": "Completed", "out_file": score}})
 
-    # Update the job status to "Completed"
-    jobs_collection.update_one({"id": job_id}, {"$set": {"status": "Completed"}})
-    print("Evaluation completed for job " + str(job_id))
 
 @app.post("/jobs")
-def create_job(job_data: dict):
+async def create_job(job_data: dict):
     job_id = str(uuid.uuid4())
 
     job = Job(
@@ -92,7 +86,7 @@ def create_job(job_data: dict):
     return job_id
 
 @app.put("/jobs/{job_id}/stop")
-def stop_job(job_id: str):
+async def stop_job(job_id: str):
     job = jobs_collection.find_one({"id": job_id})
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -108,7 +102,7 @@ def stop_job(job_id: str):
 
 
 @app.get("/jobs/{job_id}")
-def describe_job(job_id: str):
+async def describe_job(job_id: str):
     job = jobs_collection.find_one({"id": job_id})
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
@@ -119,31 +113,15 @@ def describe_job(job_id: str):
 
 
 @app.get("/jobs")
-@app.get("/jobs")
-def list_jobs():
+async def list_jobs():
     job_records = jobs_collection.find()
     jobs = [serialize_job(job) for job in job_records]
     return jobs
 
-#def list_jobs():
-#    job_records = jobs_collection.find()
-#    jobs = []
-#    for job in job_records:
-#        job_dict = {
-#            "id": str(job["_id"]),
-#            "name": job["name"],
-#            "model": job["model"],
-#            "key": job["key"],
-#            "data_file": job["data_file"],
-#            "out_file": job["out_file"],
-#            "status": job["status"],
-#        }
-#        jobs.append(job_dict)
-#    return jobs
 
 def evaluate_model(job):
     time.sleep(random.randint(1, 5))
-    return {"score": 0.8}
+    return {"score": 0.8, "file": "s3://addyourpath/here"}
 
 
 if __name__ == "__main__":
