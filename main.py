@@ -54,11 +54,12 @@ def serialize_job(job_dict: dict):
 
 @celery_app.task(bind=True)
 def process_job(self, job_id):
+    print("inside process_job")
     backend = 'redis://my-redis-container:6379/0'
     job = jobs_collection.find_one({"id": job_id})
     if job is None:
         raise ValueError(f"Job with ID {job_id} not found.")
-
+    print("Evaluating job " + str(job_id))
     # Perform the necessary tasks to evaluate the model and generate the score
     score = evaluate_model(job)
 
@@ -69,7 +70,7 @@ def process_job(self, job_id):
 
     # Update the job status to "Completed"
     jobs_collection.update_one({"id": job_id}, {"$set": {"status": "Completed"}})
-
+    print("Evaluation completed for job " + str(job_id))
 
 @app.post("/jobs")
 def create_job(job_data: dict):
