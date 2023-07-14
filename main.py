@@ -137,6 +137,7 @@ async def delete_all_jobs():
 
 
 def evaluate_model(job):
+    # job is a type of dict
     # Store the current directory
     current_dir = os.getcwd()
 
