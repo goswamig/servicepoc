@@ -10,6 +10,10 @@ COPY requirements.txt .
 # Install the dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Clone the GitHub repository
+RUN apt-get update && apt-get install -y git
+RUN git clone https://github.com/AI-secure/DecodingTrust.git
+
 # Copy the application code to the container
 COPY main.py .
 
