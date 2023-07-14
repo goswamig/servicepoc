@@ -10,7 +10,9 @@ services:
     depends_on:
       - redis
       - mongodb
-    networks:
+    environment: 
+      - OPENAI_API_KEY=<add your open AI keys>
+    networks
       - my-network
 
   celery:
@@ -20,6 +22,8 @@ services:
     command: ["celery", "-A", "main.celery_app", "worker", "--loglevel=info"]
     depends_on:
       - my-fastapi-service
+    environment: 
+      - OPENAI_API_KEY=<add your open AI keys>
     networks:
       - my-network
 

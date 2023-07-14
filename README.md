@@ -7,3 +7,6 @@ curl -X PUT http://localhost:8000/jobs/{job_id}/stop
 curl http://localhost:8000/jobs/{job_id}
 curl http://localhost:8000/jobs
 
+# CAUTION
+curl -X DELETE http://localhost:8000/jobs
+

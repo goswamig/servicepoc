@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from celery import Celery
 from pymongo import MongoClient
@@ -8,6 +8,9 @@ import time
 import random
 from typing import Optional
 from bson import ObjectId
+from motor.motor_asyncio import AsyncIOMotorClient
+import os
+import subprocess
 
 
 app = FastAPI()
@@ -24,6 +27,12 @@ celery_app = Celery(
     backend="redis://redis:6379/0"
 )
 
+
+# Establishing async connection to MongoDB
+async def get_db():
+    client = AsyncIOMotorClient("mongodb://mongodb:27017/")
+    db = client["mydatabase"]
+    return db
 
 class Job(BaseModel):
     id: str
@@ -54,7 +63,6 @@ def serialize_job(job_dict: dict):
 
 @celery_app.task(bind=True)
 def process_job(self, job_id):
-    print("inside process_job")
     backend = 'redis://my-redis-container:6379/0'
     job = jobs_collection.find_one({"id": job_id})
     if job is None:
@@ -103,7 +111,7 @@ async def stop_job(job_id: str):
 
 @app.get("/jobs/{job_id}")
 async def describe_job(job_id: str):
-    job = jobs_collection.find_one({"id": job_id})
+    job =  jobs_collection.find_one({"id": job_id})
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
@@ -114,14 +122,56 @@ async def describe_job(job_id: str):
 
 @app.get("/jobs")
 async def list_jobs():
-    job_records = jobs_collection.find()
+    job_records =  jobs_collection.find()
     jobs = [serialize_job(job) for job in job_records]
     return jobs
 
 
+@app.delete("/jobs")
+async def delete_all_jobs():
+    client = MongoClient("mongodb://mongodb:27017/")
+    db = client["mydatabase"]
+    jobs_collection = db["jobs"]
+    result = jobs_collection.delete_many({})
+    return {"message": f"Deleted {result.deleted_count} jobs."}
+
+
 def evaluate_model(job):
-    time.sleep(random.randint(1, 5))
-    return {"score": 0.8, "file": "s3://addyourpath/here"}
+    # Store the current directory
+    current_dir = os.getcwd()
+
+    try:
+        # Change to the DecodingTrust directory
+        os.chdir("DecodingTrust")
+
+        # Execute the command
+        command = [
+            "python", 
+            "adv-glue-plus-plus/gpt_eval.py",
+            "--model",
+            "gpt-3.5-turbo-0301",
+            "--key",
+            "test123",  # job.get('key', ''),  # Assumes job's 'key' parameter is the desired key
+            "--data-file",
+            "data/adv-glue-plus-plus/data/alpaca.json",  # Replace this with the desired data file path
+            "--out-file",
+            "data/test123"    # f"data/test_output_{job['id']}.json"  # Output file name includes job id
+        ]
+        subprocess.run(command, check=True)
+        out_file = "data/test123"  #f"data/test_output_{job['id']}.json"
+
+        # Read and return the results
+        with open(out_file, "r") as f:
+            results = json.load(f)
+        return results
+
+    except Exception as e:
+        print(f"An error occurred: {e}")
+
+    finally:
+        # Change back to the original directory
+        os.chdir(current_dir)
+
 
 
 if __name__ == "__main__":
