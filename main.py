@@ -1,6 +1,7 @@
 from fastapi import FastAPI, HTTPException, Depends
 from pydantic import BaseModel
 from celery import Celery
+from celery.utils.log import get_task_logger
 from pymongo import MongoClient
 import uuid
 import json
@@ -26,6 +27,7 @@ celery_app = Celery(
     broker="redis://redis:6379/0",
     backend="redis://redis:6379/0"
 )
+logger = get_task_logger(__name__)
 
 
 # Establishing async connection to MongoDB
@@ -63,6 +65,7 @@ def serialize_job(job_dict: dict):
 
 @celery_app.task(bind=True)
 def process_job(self, job_id):
+    logger.info(f"Processing job with ID: {job_id}")
     backend = 'redis://my-redis-container:6379/0'
     job = jobs_collection.find_one({"id": job_id})
     if job is None:
@@ -89,7 +92,8 @@ async def create_job(job_data: dict):
 
     jobs_collection.insert_one(job_dict)
 
-    process_job.delay(job_id)
+    task = process_job.delay(job_id)
+    jobs_collection.update_one({"id": job_id}, {"$set": {"task_id": task.id}})
 
     return job_id
 
@@ -102,7 +106,9 @@ async def stop_job(job_id: str):
     if job["status"] != "Pending":
         raise HTTPException(status_code=400, detail="Only pending jobs can be stopped")
 
-    # TODO: Stop the worker, remove from queue
+    if "task_id" in job:
+        revoke_task(job["task_id"])
+
 
     jobs_collection.update_one({"id": job_id}, {"$set": {"status": "Stopped"}})
 
@@ -129,11 +135,23 @@ async def list_jobs():
 
 @app.delete("/jobs")
 async def delete_all_jobs():
-    client = MongoClient("mongodb://mongodb:27017/")
-    db = client["mydatabase"]
-    jobs_collection = db["jobs"]
-    # TODO: Find the respective job and cancel it or delete it
+    # Retrieve all jobs
+    job_records = jobs_collection.find({})
+    job_ids = []
+    task_ids = []
+
+    for job in job_records:
+        job_ids.append(job["id"])
+        if "task_id" in job:
+            task_ids.append(job["task_id"])
+
+    # Revoke the tasks associated with the jobs
+    for task_id in task_ids:
+        revoke_task(task_id)
+
+    # Delete all jobs
     result = jobs_collection.delete_many({})
+
     return {"message": f"Deleted {result.deleted_count} jobs."}
 
 
@@ -141,7 +159,7 @@ def evaluate_model(job):
     # job is a type of dict
     # Store the current directory
     current_dir = os.getcwd()
-
+    print("Evalute Model " + str(job))
     try:
         # Change to the DecodingTrust directory
         os.chdir("DecodingTrust")
@@ -173,6 +191,9 @@ def evaluate_model(job):
     finally:
         # Change back to the original directory
         os.chdir(current_dir)
+    return {"score": random.randint(10, 15), "file":"s3//myS3bucket/"}
+def revoke_task(task_id):
+    celery_app.control.revoke(task_id, terminate=True)
 
 
 

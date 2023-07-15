@@ -20,6 +20,6 @@ COPY main.py .
 # Expose the required port
 EXPOSE 8000
 
-# Run the FastAPI application
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+# Run the Celery worker
+CMD ["celery", "-A", "main.celery_app", "worker", "--loglevel=info"]
 
