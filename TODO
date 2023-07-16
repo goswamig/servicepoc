@@ -1,18 +1,3 @@
-1) Dockerfile copy everything not just main.py
-2) Run the python command store the result in DB once succeeded     command = f"python adv-glue-plus-plus/gpt_eval.py --model {request.model} --key {request.key} --data-file {request.data_file} --out-file {request.out_file}"
-
-    # stdout and stderr goes to stdout 
-    process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, universal_newlines=True)
-
-    # Stream the subprocess output
-    for line in iter(process.stdout.readline, ''):
-        sys.stdout.write(line)
-        sys.stdout.flush()
-
-    process.communicate()  # Wait for the process to finish
-    if process.returncode == 0:
-        return {"success": True, "output": result.stdout}
-    else:
-        return {"success": False, "error": result.stderr}
-
-
+1) Add log files and try to stream it from logs folder 
+2) Follow TODO from code 
+3) Make database efficient

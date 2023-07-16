@@ -1,4 +1,5 @@
 from fastapi import FastAPI, HTTPException, Depends
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from celery import Celery
 from celery.utils.log import get_task_logger
@@ -15,6 +16,21 @@ import subprocess
 
 
 app = FastAPI()
+
+
+origins = [
+    "http://localhost:3000"  # React app is served from this origin
+    # any other origins that you want to include
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 client = MongoClient("mongodb://mongodb:27017/")
 
@@ -71,6 +87,8 @@ def process_job(self, job_id):
     if job is None:
         raise ValueError(f"Job with ID {job_id} not found.")
 
+    jobs_collection.update_one({"id": job_id}, {"$set": {"status": "Running"}})
+
     # Perform the necessary tasks to evaluate the model and generate the score
     score = evaluate_model(job)
 
@@ -103,8 +121,8 @@ async def stop_job(job_id: str):
     if job is None:
         raise HTTPException(status_code=404, detail="Job not found")
 
-    if job["status"] != "Pending":
-        raise HTTPException(status_code=400, detail="Only pending jobs can be stopped")
+    if job["status"] != "Pending" and job["status"] != "Running":
+        raise HTTPException(status_code=400, detail="Only pending or running jobs can be stopped")
 
     if "task_id" in job:
         revoke_task(job["task_id"])

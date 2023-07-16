@@ -21,3 +21,6 @@ curl -X PUT http://localhost:8000/jobs/{job_id}/stop
 ## Delete all jobs 
 curl -X DELETE http://localhost:8000/jobs
 
+
+# For UI launch
+Goto frontend folder and run `npm start` and visit `http://localhost:3000`
