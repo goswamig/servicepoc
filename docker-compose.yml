@@ -25,7 +25,7 @@ services:
     env_file:
       - ./env_file.env
     volumes:
-      - ./logs:/app/logs  # Mount a volume for storing task logs
+      - ./logs:/app/DecodingTrust/logs
     networks:
       - my-network
 

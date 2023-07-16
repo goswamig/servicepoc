@@ -164,6 +164,14 @@ def evaluate_model(job):
         # Change to the DecodingTrust directory
         os.chdir("DecodingTrust")
 
+        # Create the log directory
+        try:
+            os.makedirs("logs")
+        except FileExistsError:
+            pass
+
+        out_file = f"logs/{job['name']}_{job['id']}.json"
+        # TODO: Add inout file based on model 
         # Execute the command
         command = [
             "python", 
@@ -175,10 +183,9 @@ def evaluate_model(job):
             "--data-file",
             "data/adv-glue-plus-plus/data/alpaca.json",  # Replace this with the desired data file path
             "--out-file",
-            "data/test123"    # f"data/test_output_{job['id']}.json"  # Output file name includes job id
+            out_file
         ]
         subprocess.run(command, check=True)
-        out_file = "data/test123"  #f"data/test_output_{job['id']}.json"
 
         # Read and return the results
         with open(out_file, "r") as f:
@@ -191,7 +198,7 @@ def evaluate_model(job):
     finally:
         # Change back to the original directory
         os.chdir(current_dir)
-    return {"score": random.randint(10, 15), "file":"s3//myS3bucket/"}
+
 def revoke_task(task_id):
     celery_app.control.revoke(task_id, terminate=True)
 
