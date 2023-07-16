@@ -24,3 +24,4 @@ curl -X DELETE http://localhost:8000/jobs
 
 # For UI launch
 Goto frontend folder and run `npm start` and visit `http://localhost:3000`
+if there is any error for package just do `npm install <package name>`

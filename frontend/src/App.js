@@ -120,6 +120,7 @@ class JobList extends React.Component {
               <th>Data File</th>
               <th>Output File</th>
               <th>Status</th>
+              <th>Logs</th> {/* Added new log column */}
               <th>Actions</th>
             </tr>
           </thead>
@@ -133,6 +134,12 @@ class JobList extends React.Component {
                 <td>{job.data_file}</td>
                 <td>{job.out_file}</td>
                 <td>{job.status}</td>
+                <td>
+                  {/* Log hyperlink */}
+                  <a href={`http://localhost:8001/logs/${job.name}_${job.id}.json`} target="_blank" rel="noopener noreferrer">
+                    View Logs
+                  </a>
+                </td>
                 <td>
                   <button className="actionButton" onClick={() => this.describeJob(job.id)}>Describe</button>
                   <button className="actionButton" onClick={() => this.stopJob(job.id)}>Stop</button>

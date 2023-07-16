@@ -91,8 +91,8 @@ def process_job(self, job_id):
 
     # Perform the necessary tasks to evaluate the model and generate the score
     score = evaluate_model(job)
-
-    jobs_collection.update_one({"id": job_id}, {"$set": {"status": "Completed", "out_file": score}})
+    out_file = f"logs/{job['name']}_{job['id']}.json"
+    jobs_collection.update_one({"id": job_id}, {"$set": {"status": "Completed", "out_file": out_file}})
 
 
 @app.post("/jobs")
@@ -177,7 +177,6 @@ def evaluate_model(job):
     # job is a type of dict
     # Store the current directory
     current_dir = os.getcwd()
-    print("Evalute Model " + str(job))
     try:
         # Change to the DecodingTrust directory
         os.chdir("DecodingTrust")
